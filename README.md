@@ -5,7 +5,15 @@ April 2026
 
 Universidad de Castilla-La Mancha - Ciudad Real - España
 
+
+
 # Getting Started
+
+Complete this form: 
+
+https://forms.gle/qp6W9RVSVzUU1j799
+
+
 
 ## 1. Clone the Repository
 
