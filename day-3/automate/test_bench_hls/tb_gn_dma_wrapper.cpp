@@ -41,7 +41,7 @@
 //  Adjust these paths to your actual hls4ml project layout:
 //    <project>/firmware/myproject.h      → top-level inference function
 //    <project>/firmware/dma_wrapper.h    → DMA AXI-Stream wrapper
-#include "/firmware/myproject.h "
+#include "firmware/myproject.h "
 #include "firmware/myproject_auto_accel.h "   // exposes:  void dma_wrapper(hls::stream<axis_t>&, hls::stream<axis_t>&)
 
 // ---- Trace data (raw integers, one sample per line, comma-separated) -------
@@ -180,7 +180,7 @@ static int run_sample(
 
     // 3. Run DMA wrapper (calls myproject internally)
     hls::stream<axis_t> s_out("s_out");
-    dma_wrapper(s_in, s_out);
+    myproject_auto_accel(s_in, s_out);
 
     // 4. Read output AXI-Stream
     float scores[N_OUTPUT];
