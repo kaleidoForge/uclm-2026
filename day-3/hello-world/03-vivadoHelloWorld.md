@@ -127,7 +127,7 @@ The **Zynq UltraScale+ MPSoC** block will then appear in the block diagram canva
 
 15. Add the inference IP core. To do so, in the **Flow Navigator** pane, go to  the **Project Manager** area and click on **Settings**.
 
-16.  Navigate to **IP → Repository**, click **Add Repository**, and select , and select **day-3/hello-wolrd/ip** folder.
+16.  Navigate to **IP → Repository**, click **Add Repository**, and select , and select **day-3/hello-wolrd/ip** folder **(unzip the file before adding the folder to the repository)**.  
 
 > **Note:**  
 > If you generated the IP using hls4ml, make sure to select the output directory that contains the IP definition files.
