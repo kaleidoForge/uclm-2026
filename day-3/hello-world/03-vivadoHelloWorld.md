@@ -99,12 +99,7 @@ The **Zynq UltraScale+ MPSoC** block will then appear in the block diagram canva
 
 9. Click on the **PS-PL Configuration** at the **Page Navigator** pane. Expand **PS-PL interfaces** and verify that the AXI HPM0 LPD is checked. Then, expand **Slave Interface/AXI HP** and select AXI HP0 FPD.
 
-
-<p align="center">
-  <img src="img/General/re_customize_ip.png" width="70%">
-</p>
-
-10. Click on the **Clock Configuration** option and expand **PL Fabric Clocks**. Verify that **FCLK_CLK0** is enabled and its frequency is set to 100 MHz. **This section defines the clock frequency for the PL (Programmable Logic) digital design**.
+10. Click on the **Clock Configuration** option and expand **PL Fabric Clocks**. Verify that **FCLK_CLK0** (or **PL0**) is enabled and its frequency is set to 100 MHz. **This section defines the clock frequency for the PL (Programmable Logic) digital design**.
 
 
 11. Finish with the **PS** configuration by clicking the ![OK](img/General/ok_btn.png) button in the **Re-Customize** IP window.
