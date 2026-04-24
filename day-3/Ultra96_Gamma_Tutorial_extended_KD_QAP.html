@@ -434,52 +434,123 @@
                 <div class="step-content">
                     <h4>Training via Python API</h4>
                     <p>If you prefer to train your model programmatically, use this standalone script to reproduce the
-                        KalEdge workflow. This script loads the scientific dataset, builds the quantized model, and
-                        prepares the HLS configuration.</p>
+                        KalEdge workflow. This script loads the dataset, applies the same <strong>per-sample
+                        normalization</strong> used in Part A, performs a proper train/test split, builds and trains
+                        the quantized model, evaluates it, and prepares the HLS configuration.</p>
+                    <div class="important-box">
+                        <strong>Test dataset:</strong> The <code>X_test / y_test</code> split created here serves as
+                        your <strong>held-out evaluation set</strong>. It is used both to generate the software
+                        confusion matrix below and, once deployed, to drive hardware inference on the PYNQ board
+                        or the baremetal accelerator.
+                    </div>
                     <div class="code-block">
+                        import numpy as np<br>
                         import pandas as pd<br>
                         import tensorflow as tf<br>
                         import qkeras<br>
                         import hls4ml<br>
                         import matplotlib.pyplot as plt<br>
+                        from sklearn.model_selection import train_test_split<br>
                         from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay<br>
                         <br>
-                        # 1. Load Data<br>
-                        df = pd.read_csv('/app/assets/gamma_neutron.csv')<br>
-                        X = df.drop('class', axis=1).values<br>
-                        y = tf.keras.utils.to_categorical(df['class'])<br>
+                        # 1. Load &amp; preprocess data<br>
+                        df = pd.read_csv('../../dataset/gamma_neutron.csv')<br>
+                        X_raw = df.drop('class', axis=1).values.astype('float32')<br>
+                        y_raw = df['class'].values<br>
+                        num_classes = len(np.unique(y_raw))<br>
                         <br>
-                        # 2. Build QKeras Model<br>
+                        # Per-sample normalization (same as KalEdge Part A)<br>
+                        row_min = X_raw.min(axis=1, keepdims=True)<br>
+                        row_max = X_raw.max(axis=1, keepdims=True)<br>
+                        X = (X_raw - row_min) / (row_max - row_min + 1e-8)<br>
+                        y = tf.keras.utils.to_categorical(y_raw, num_classes)<br>
+                        <br>
+                        # Stratified 80/20 train–test split<br>
+                        X_train, X_test, y_train, y_test = train_test_split(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X, y, test_size=0.2, random_state=42, stratify=y_raw<br>
+                        )<br>
+                        <br>
+                        # 2. Build QKeras model<br>
                         model = tf.keras.Sequential([<br>
                         &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Flatten(input_shape=(X.shape[1],)),<br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(16, kernel_quantizer="quantized_bits(8,2)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(16,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,2)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,2)"),<br>
                         &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(8, kernel_quantizer="quantized_bits(8,2)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(8,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,2)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,2)"),<br>
                         &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(y.shape[1], activation="softmax")<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(num_classes, activation="softmax")<br>
                         ])<br>
                         <br>
-                        # 3. Train <br>
-                        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])<br>
-                        history = model.fit(X, y, epochs=32, batch_size=32, validation_split=0.2)<br>
+                        # 3. Train (QAT)<br>
+                        model.compile(optimizer=tf.keras.optimizers.Adam(1e-3), loss='categorical_crossentropy', metrics=['accuracy'])<br>
+                        history = model.fit(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X_train, y_train,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;epochs=32, batch_size=32,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;validation_data=(X_test, y_test)<br>
+                        )<br>
                         <br>
-                        # 4. Visualize Results (Exercise)<br>
-                        # TODO: Implement plotting for training curves (accuracy/loss history)<br>
-                        # and the Confusion Matrix to evaluate model performance.<br>
+                        # 4. Evaluate &amp; visualize results<br>
+                        fig, axes = plt.subplots(1, 2, figsize=(12, 4))<br>
+                        <br>
+                        # Training curves<br>
+                        axes[0].plot(history.history['accuracy'],  color='#4B6CF7', label='Train acc')<br>
+                        axes[0].plot(history.history['val_accuracy'], color='#A78BFA', label='Val acc', linestyle='--')<br>
+                        axes[0].set_title('Accuracy'); axes[0].legend()<br>
+                        axes[1].plot(history.history['loss'], color='#4B6CF7', label='Train loss')<br>
+                        axes[1].plot(history.history['val_loss'], color='#A78BFA', label='Val loss', linestyle='--')<br>
+                        axes[1].set_title('Loss'); axes[1].legend()<br>
+                        plt.tight_layout(); plt.show()<br>
+                        <br>
+                        # Confusion matrix on the held-out test set<br>
+                        y_pred = np.argmax(model.predict(X_test), axis=1)<br>
+                        y_true = np.argmax(y_test, axis=1)<br>
+                        cm = confusion_matrix(y_true, y_pred)<br>
+                        ConfusionMatrixDisplay(cm, display_labels=['Gamma', 'Neutron']).plot(cmap='Blues')<br>
+                        plt.title('Software model: test set'); plt.show()<br>
                         <br>
                         # 5. Convert to hls4ml<br>
+                        import os, shutil<br>
+                        <br>
+                        out_dir = 'hls4ml_prj'<br>
+                        if os.path.isdir(out_dir):&nbsp;&nbsp;# clean previous run<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;shutil.rmtree(out_dir)<br>
+                        <br>
                         config = hls4ml.utils.config_from_keras_model(model, granularity='name')<br>
                         config['Model']['Precision'] = 'ap_fixed&lt;16,6&gt;'<br>
                         config['Model']['ReuseFactor'] = 8<br>
                         config['Model']['Strategy'] = 'Latency'<br>
                         <br>
                         hls_model = hls4ml.converters.convert_from_keras_model(<br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;model, <br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;hls_config=config, <br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;output_dir='hls4ml_prj', <br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;part='xczu3eg-ffvb1156-1-e' # Ultra96-V2<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;model,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;hls_config=config,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;output_dir=out_dir,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;part='xczu3eg-ffvb1156-1-e'&nbsp;&nbsp;# Ultra96-V2<br>
                         )<br>
-                        hls_model.build()
+                        # compile() writes firmware (no Vitis HLS needed in PATH)<br>
+                        # (use hls_model.build() only if Vitis HLS is installed locally)<br>
+                        hls_model.compile()<br>
+                        <br>
+                        # 6. Patch generated files for Vitis HLS 2024.1 compatibility<br>
+                        for root, _, files in os.walk(out_dir):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;for fname in files:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = os.path.join(root, fname)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith('.tcl'):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lines = [('# ' + l if 'config_array_partition -maximum_size' in l<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else l.replace('-std=c++0x', '-std=c++11'))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for l in txt.splitlines()]<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write('\n'.join(lines))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith(('.cpp', '.h')):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#pragma HLS INLINE region', '#pragma HLS INLINE')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if '#include &lt;iostream&gt;' in txt and '#ifndef __SYNTHESIS__' not in txt:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#include &lt;iostream&gt;',<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'#ifndef __SYNTHESIS__\n#include &lt;iostream&gt;\n#endif')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write(txt)<br>
+                        print('hls4ml project ready in:', out_dir)
                     </div>
                 </div>
             </div>
@@ -667,6 +738,300 @@
                         <strong>Note:</strong> The baremetal flow requires familiarity with Vitis and bare-metal C/C++
                         development. For most users starting out, Option A (PYNQ) is recommended.
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Exercise: KD + QAP Pipeline (KalEdge Equivalent)</h2>
+            <p>This exercise replicates the <strong>KD&nbsp;+&nbsp;QAP</strong> pipeline from KalEdge using plain
+                Keras and QKeras. The idea is to train a large <em>Teacher</em> MLP, then distill its knowledge into a
+                compact, 8-bit quantized <em>Student</em> that is also pruned to 30&nbsp;% sparsity during
+                training, all in one fused pass.</p>
+            <div class="important-box">
+                <strong>Why this matters for FPGA:</strong> The pruned+quantized student generates significantly
+                sparser weight matrices, reducing LUT/FF usage and improving throughput compared to a dense QKeras
+                model trained from scratch. The distillation step helps recover the accuracy lost to pruning.
+            </div>
+            <div class="important-box" style="border-left-color: #3B82F6; background-color: #EFF6FF; color: #1E3A8A;">
+                <strong>KalEdge GUI Alternative:</strong> You can also generate this <code>hls4ml</code> project automatically through the KalEdge application. Navigate to the <strong>Pipeline</strong> tab and select the <strong>KD+QAP</strong> workflow. Note that you must first train your teacher model in the <strong>Baseline</strong> tab, and define the quantized student architecture directly in the <strong>KD</strong> tab.<br><br>
+                In KalEdge, architectures are defined using the <code>build_model(input_shape, num_classes)</code> signature. For example:<br><br>
+                <strong>Baseline (Teacher):</strong>
+                <pre style="background-color: #DBEAFE; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.9em; overflow-x: auto;">def build_model(input_shape, num_classes):
+    return tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=input_shape),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(num_classes) 
+    ])</pre>
+                <strong>Student (KD Tab):</strong>
+                <pre style="background-color: #DBEAFE; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.9em; overflow-x: auto;">import qkeras
+import tensorflow as tf
+from tensorflow.keras.layers import Flatten
+
+def build_model(input_shape, num_classes):
+    return tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=input_shape),
+        qkeras.QDense(4,
+            kernel_quantizer="quantized_bits(8,4)",
+            bias_quantizer="quantized_bits(8,4)"),
+        qkeras.QActivation("quantized_relu(8)"),
+        qkeras.QDense(16,
+            kernel_quantizer="quantized_bits(8,4)",
+            bias_quantizer="quantized_bits(8,4)"),
+        qkeras.QActivation("quantized_relu(8)"),
+        qkeras.QDense(num_classes) 
+    ])</pre><br>
+                <em>Note: The distillation hyperparameters (like temperature and alpha) must be configured directly in the <strong>KD</strong> tab prior to executing the Pipeline.</em><br><br>
+                <em>Note 2: Before generating the HLS project, navigate to the <strong>hls4ml</strong> tab and ensure the default precision is set to <code>ap_fixed&lt;16,8&gt;</code> to avoid overflow issues during C-simulation.</em>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">A</div>
+                <div class="step-content">
+                    <h4>Step A: Train the Teacher</h4>
+                    <p>Define and train a larger, float-precision MLP that will act as the soft-label source for
+                        distillation. This model is <em>not</em> deployed to hardware.</p>
+                    <div class="code-block">
+                        import numpy as np<br>
+                        import tensorflow as tf<br>
+                        import qkeras<br>
+                        import tensorflow_model_optimization as tfmot<br>
+                        import matplotlib.pyplot as plt<br>
+                        import pandas as pd<br>
+                        from sklearn.model_selection import train_test_split<br>
+                        from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay<br>
+                        <br>
+                        # 1. Load & preprocess data<br>
+                        df = pd.read_csv('../dataset/gamma_neutron.csv')<br>
+                        X_raw = df.drop('class', axis=1).values.astype('float32')<br>
+                        y_raw = df['class'].values<br>
+                        num_classes = len(np.unique(y_raw))<br>
+                        <br>
+                        # Per-sample normalization (same as KalEdge Part A)<br>
+                        row_min = X_raw.min(axis=1, keepdims=True)<br>
+                        row_max = X_raw.max(axis=1, keepdims=True)<br>
+                        X = (X_raw - row_min) / (row_max - row_min + 1e-8)<br>
+                        y = tf.keras.utils.to_categorical(y_raw, num_classes)<br>
+                        <br>
+                        # Stratified 80/20 train-test split<br>
+                        X_train, X_test, y_train, y_test = train_test_split(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X, y, test_size=0.2, random_state=42, stratify=y_raw<br>
+                        )<br>
+                        <br>
+                        # Teacher: larger float MLP<br>
+                        teacher = tf.keras.Sequential([<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Flatten(input_shape=(X_train.shape[1],)),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Dense(64, activation='relu'),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Dense(32, activation='relu'),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Dense(y_train.shape[1])  # logits (no softmax)<br>
+                        ], name='teacher')<br>
+                        <br>
+                        teacher.compile(optimizer=tf.keras.optimizers.Adam(1e-3),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;metrics=['accuracy'])<br>
+                        teacher.fit(X_train, y_train, epochs=40, batch_size=32,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;validation_data=(X_test, y_test), verbose=1)<br>
+                        print(f"Teacher val acc: {teacher.evaluate(X_test, y_test, verbose=0)[1]:.4f}")
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">B</div>
+                <div class="step-content">
+                    <h4>Step B: Define the Quantized Student (QKeras)</h4>
+                    <p>Build the same compact QKeras architecture used in Step 11 but <strong>without softmax</strong>
+                        on the output layer, so the Distiller receives raw logits from both teacher and student.</p>
+                    <div class="code-block">
+                        def build_student():<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;return tf.keras.Sequential([<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Flatten(input_shape=(X_train.shape[1],)),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(4,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,4)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,4)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(16,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,4)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,4)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(y_train.shape[1])  # logits, no softmax<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;], name='student')
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">C</div>
+                <div class="step-content">
+                    <h4>Step C: Fused Distillation + Pruning (KD + QAP)</h4>
+                    <p>Wrap the student in a <code>Distiller</code> that overrides <code>train_step</code> to blend
+                        the hard label loss with the KL soft-label loss from the teacher (temperature scaling).
+                        Then apply <strong>magnitude-based pruning</strong> using a <code>PolynomialDecay</code>
+                        schedule to reach 30&nbsp;% sparsity by the end of training.</p>
+                    <div class="code-block">
+                        TEMPERATURE  = 4.0   # soften teacher distribution<br>
+                        ALPHA        = 0.3   # weight of hard label loss<br>
+                        SPARSITY     = 0.30  # target pruning sparsity<br>
+                        EPOCHS       = 40<br>
+                        BATCH_SIZE   = 32<br>
+                        PRUNE_START  = 5     # epoch to begin pruning (let KD warm up first)<br>
+                        PRUNE_END    = 35    # epoch to reach full sparsity (leave tail clean)<br>
+                        <br>
+                        # Distiller (mirrors KalEdge ml_core_kd.py)<br>
+                        hard_loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)<br>
+                        kl        = tf.keras.losses.KLDivergence()<br>
+                        <br>
+                        class Distiller(tf.keras.Model):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def __init__(self, student, teacher):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;super().__init__()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.student = student<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.teacher = teacher<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self._acc = tf.keras.metrics.CategoricalAccuracy(name='accuracy')<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def compile(self, optimizer):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;super().compile()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.optimizer = optimizer<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def train_step(self, data):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x, y = data<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t_logits = self.teacher(x, training=False)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with tf.GradientTape() as tape:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_logits = self.student(x, training=True)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hard = hard_loss(y, s_logits)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t_soft = tf.nn.softmax(t_logits / TEMPERATURE)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_soft = tf.nn.softmax(s_logits / TEMPERATURE)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;soft  = kl(t_soft, s_soft) * (TEMPERATURE ** 2)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loss  = ALPHA * hard + (1 - ALPHA) * soft<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;grads = tape.gradient(loss, self.student.trainable_variables)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.optimizer.apply_gradients(zip(grads, self.student.trainable_variables))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self._acc.update_state(y, tf.nn.softmax(s_logits))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return {'loss': loss, 'accuracy': self._acc.result()}<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def test_step(self, data):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x, y = data<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_logits = self.student(x, training=False)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self._acc.update_state(y, tf.nn.softmax(s_logits))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return {'loss': hard_loss(y, s_logits), 'accuracy': self._acc.result()}<br>
+                        <br>
+                        # Apply pruning schedule to the QKeras student<br>
+                        steps_per_epoch = max(1, len(X_train) // BATCH_SIZE)<br>
+                        schedule = tfmot.sparsity.keras.PolynomialDecay(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;initial_sparsity=0.0,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;final_sparsity=SPARSITY,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;begin_step=PRUNE_START * steps_per_epoch,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;end_step=PRUNE_END   * steps_per_epoch)<br>
+                        <br>
+                        student_pruned = tfmot.sparsity.keras.prune_low_magnitude(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;build_student(), pruning_schedule=schedule)<br>
+                        <br>
+                        distiller = Distiller(student_pruned, teacher)<br>
+                        distiller.compile(optimizer=tf.keras.optimizers.Adam(1e-3))<br>
+                        <br>
+                        hist_kd = distiller.fit(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X_train, y_train,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;validation_data=(X_test, y_test),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;epochs=EPOCHS, batch_size=BATCH_SIZE,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])<br>
+                        <br>
+                        # Strip pruning masks to get the clean deployable model<br>
+                        student_final = tfmot.sparsity.keras.strip_pruning(distiller.student)
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">D</div>
+                <div class="step-content">
+                    <h4>Step D: Evaluate &amp; Compare</h4>
+                    <p>Plot the distillation training curves and compare the student confusion matrix against the
+                        teacher baseline. Then feed <code>student_final</code> into the hls4ml pipeline from
+                        Step&nbsp;11 to generate the pruned+quantized FPGA firmware.</p>
+                    <div class="code-block">
+                        # Training curves<br>
+                        fig, axes = plt.subplots(1, 2, figsize=(12, 4))<br>
+                        axes[0].plot(hist_kd.history['accuracy'], color='#4B6CF7', label='Student train')<br>
+                        axes[0].plot(hist_kd.history['val_accuracy'], color='#A78BFA', label='Student val', linestyle='--')<br>
+                        axes[0].set_title('KD Accuracy'); axes[0].legend()<br>
+                        axes[1].plot(hist_kd.history['loss'], color='#4B6CF7', label='Train loss')<br>
+                        axes[1].plot(hist_kd.history['val_loss'], color='#A78BFA', label='Val loss', linestyle='--')<br>
+                        axes[1].set_title('KD Loss'); axes[1].legend()<br>
+                        plt.tight_layout(); plt.show()<br>
+                        <br>
+                        # Confusion matrix: student_final<br>
+                        y_pred = np.argmax(tf.nn.softmax(student_final(X_test)).numpy(), axis=1)<br>
+                        y_true = np.argmax(y_test, axis=1)<br>
+                        cm = confusion_matrix(y_true, y_pred)<br>
+                        ConfusionMatrixDisplay(cm, display_labels=['Gamma', 'Neutron']).plot(cmap='Greens')<br>
+                        plt.title('KD + QAP student: test set'); plt.show()<br>
+                        <br>
+                        # Convert the pruned student to hls4ml<br>
+                        import os, shutil<br>
+                        <br>
+                        out_dir_kd = 'hls4ml_prj_kd'<br>
+                        if os.path.isdir(out_dir_kd):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;shutil.rmtree(out_dir_kd)<br>
+                        <br>
+                        config_kd = hls4ml.utils.config_from_keras_model(student_final, granularity='name')<br>
+                        config_kd['Model']['Precision'] = 'ap_fixed&lt;16,6&gt;'<br>
+                        config_kd['Model']['ReuseFactor'] = 8<br>
+                        config_kd['Model']['Strategy'] = 'Latency'<br>
+                        <br>
+                        hls_student = hls4ml.converters.convert_from_keras_model(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;student_final,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;hls_config=config_kd,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;output_dir=out_dir_kd,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;part='xczu3eg-ffvb1156-1-e'<br>
+                        )<br>
+                        hls_student.compile()<br>
+                        <br>
+                        # Apply the same Vitis HLS 2024.1 compatibility patches (see Step 11)<br>
+                        for root, _, files in os.walk(out_dir_kd):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;for fname in files:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = os.path.join(root, fname)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith('.tcl'):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lines = [('# ' + l if 'config_array_partition -maximum_size' in l<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else l.replace('-std=c++0x', '-std=c++11'))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for l in txt.splitlines()]<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write('\n'.join(lines))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith(('.cpp', '.h')):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#pragma HLS INLINE region', '#pragma HLS INLINE')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if '#include &lt;iostream&gt;' in txt and '#ifndef __SYNTHESIS__' not in txt:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#include &lt;iostream&gt;',<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'#ifndef __SYNTHESIS__\n#include &lt;iostream&gt;\n#endif')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write(txt)<br>
+                        print('KD+QAP hls4ml project ready in:', out_dir_kd)<br>
+                        <br>
+                        # HLS C-simulation: confusion matrix from the compiled HLS model<br>
+                        y_hls = hls_student.predict(np.ascontiguousarray(X_test))<br>
+                        y_pred_hls = np.argmax(y_hls, axis=1)<br>
+                        cm_hls = confusion_matrix(y_true, y_pred_hls)<br>
+                        <br>
+                        fig, axes = plt.subplots(1, 2, figsize=(10, 4))<br>
+                        ConfusionMatrixDisplay(cm,     display_labels=['Gamma','Neutron']).plot(cmap='Greens', ax=axes[0])<br>
+                        ConfusionMatrixDisplay(cm_hls, display_labels=['Gamma','Neutron']).plot(cmap='Blues',  ax=axes[1])<br>
+                        axes[0].set_title('Software (student_final)')<br>
+                        axes[1].set_title('HLS C-sim (hls_student)')<br>
+                        plt.tight_layout(); plt.show()
+                    </div>
+                    <div class="important-box">
+                        <strong>Exercise:</strong> Compare the HLS synthesis report of <code>student_final</code>
+                        (KD&nbsp;+&nbsp;QAP) against the dense QKeras model from Step&nbsp;11.
+                        Look at LUT, FF, and DSP counts in the Vitis HLS report; the sparsity should
+                        translate to a measurable resource reduction. Try adjusting <code>SPARSITY</code>
+                        to 0.5 and observe the accuracy/resource trade-off.
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">E</div>
+                <div class="step-content">
+                    <h4>Step E: Hardware Implementation</h4>
+                    <p>Once you have generated the <code>hls4ml_prj_kd</code> project and verified the HLS C-simulation, you can proceed to implement this optimized accelerator on your Ultra96-V2 board.</p>
+                    <p>Follow the same procedures as in the main tutorial starting from <strong>Step 12</strong> to build the DMA wrapper, synthesize the IP in Vitis HLS, generate the Vivado block design, and deploy the bitstream using PYNQ or Baremetal.</p>
                 </div>
             </div>
         </div>

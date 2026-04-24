@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KalEdge | Ultra96-V2 Gamma-Neutron Tutorial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --secondary: #1E1B4B;
+            --text: #374151;
+            --bg: #F9FAFB;
+            --accent: #6366F1;
+            --success: #10B981;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--secondary) 0%, #312E81 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .header .badge {
+            background-color: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: -40px auto 40px;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: var(--secondary);
+            border-bottom: 2px solid #E5E7EB;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--primary);
+            margin-top: 25px;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 1px dashed #E5E7EB;
+        }
+
+        .step:last-child {
+            border-bottom: none;
+        }
+
+        .step-number {
+            background-color: var(--primary);
+            color: white;
+            min-width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-right: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+
+        .step-content h4 {
+            margin: 0 0 10px 0;
+            font-size: 1.25rem;
+            color: var(--secondary);
+        }
+
+        .code-block {
+            background-color: #1E293B;
+            color: #F8FAFC;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .config-table td {
+            padding: 8px 12px;
+            border: 1px solid #E5E7EB;
+        }
+
+        .config-table td:first-child {
+            background-color: #F3F4F6;
+            font-weight: 600;
+            width: 40%;
+        }
+
+        .important-box {
+            background-color: #FFFBEB;
+            border-left: 4px solid #F59E0B;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #92400E;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: #6B7280;
+            font-size: 0.875rem;
+        }
+
+        .highlight {
+            color: var(--primary);
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <!-- <div class="badge">Advanced Tutorial</div> -->
+        <h1>Ultra96-V2: Gamma-Neutron Classification</h1>
+        <p>Particle discrimination using Quantized Neural Networks</p>
+    </div>
+    <div class="container">
+        <div class="card">
+            <h2>Scenario Overview</h2>
+            <p>In this lab, you will deploy an MLP-based model for <strong>Gamma-Neutron</strong> particle
+                discrimination. We will use a 1D signal dataset, apply 8-bit quantization with QKeras, and target the
+                Xilinx <strong>Ultra96-V2 (Zynq UltraScale+ MPSoC)</strong>.</p>
+        </div>
+
+        <div class="card">
+            <h2>Part A: KalEdge Interactive Workflow</h2>
+            <p>Follow these steps to use the KalEdge GUI for dataset loading, training, and hardware generation.</p>
+            <div class="important-box">
+                <strong>Deployment target:</strong> The generated <code>.xsa</code> can be deployed in two ways:
+                <strong>PYNQ</strong> (Python overlay, recommended for rapid prototyping) or
+                <strong>Baremetal</strong> (Vitis standalone application, for production or latency-critical use cases).
+                Both paths use the same bitstream and hardware definition.
+            </div>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Load the dataset</h4>
+                    <!-- <p>to use the pre-loaded dataset:</p> -->
+                    <table class="config-table">
+                        <tr>
+                            <td>Dataset Type</td>
+                            <td>CSV (path)</td>
+                        </tr>
+                        <tr>
+                            <td>CSV File Path</td>
+                            <td><span class="highlight">/app/assets/gamma_neutron.csv</span></td>
+                        </tr>
+                        <tr>
+                            <td>Input Mode</td>
+                            <td>MLP (Flatten)</td>
+                        </tr>
+                        <tr>
+                            <td>Normalization</td>
+                            <td>Per sample: time series / 1D signals</td>
+                        </tr>
+                        <tr>
+                            <td>Target (Class) Column</td>
+                            <td>class</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Configure QKeras Architecture</h4>
+                    <p>Navigate to the <strong>Training</strong> panel and select the <strong>QKeras</strong> tab to
+                        load the MLP topology designed for 8-bit efficiency:</p>
+                    <div class="code-block">
+                        tf.keras.layers.Flatten(input_shape=input_shape),<br>
+                        qkeras.QDense(16, kernel_quantizer="quantized_bits(8,2)"),<br>
+                        qkeras.QActivation("quantized_relu(8)"),<br>
+                        qkeras.QDense(8, kernel_quantizer="quantized_bits(8,2)"),<br>
+                        qkeras.QActivation("quantized_relu(8)"),<br>
+                        qkeras.QDense(num_classes, activation="softmax")
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Model Training (QAT)</h4>
+                    <p>Within the <strong>QKeras</strong> tab, set the epochs to 32 and click <strong>Train
+                            Model</strong>. This performs Quantization-Aware Training (QAT) to optimize the model for
+                        hardware while maintaining high accuracy.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h4>HLS Integration for Ultra96-V2</h4>
+                    <p>Switch to the <strong>HLS4ML Integration</strong> tab and apply the specific hardware target
+                        settings:</p>
+                    <table class="config-table">
+                        <tr>
+                            <td>Select Model</td>
+                            <td>qat_qkeras</td>
+                        </tr>
+                        <tr>
+                            <td>Target FPGA Board</td>
+                            <td><span class="highlight">Ultra96-V2 (xczu3eg)</span></td>
+                        </tr>
+                        <tr>
+                            <td>Precision (ap_fixed)</td>
+                            <td>ap_fixed&lt;16,6&gt;</td>
+                        </tr>
+                        <tr>
+                            <td>Reuse Factor</td>
+                            <td>8</td>
+                        </tr>
+                        <tr>
+                            <td>Strategy</td>
+                            <td>Latency</td>
+                        </tr>
+                        <tr>
+                            <td>Disable Dataflow</td>
+                            <td>Checked</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h4>Generate and Download</h4>
+                    <p>Click <strong>Convert to HLS</strong> to generate the C++ source. Once complete, download the
+                        consolidated hardware package:</p>
+                    <ul>
+                        <li><span class="highlight">Download HLS Project (DMA):</span> This single package includes the
+                            full C++ source, Vivado scripts, and the integrated <strong>DMA Wrapper</strong> needed for
+                            AXI-Stream communication.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <h4>Local Setup & Extraction</h4>
+                    <p>Navigate to your local repository folder, specifically to the <span class="highlight">day3</span>
+                        directory. Copy the downloaded project package (zip/tarball) here and extract it. This folder
+                        will serve as your full hardware workspace.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">7</div>
+                <div class="step-content">
+                    <h4>HLS C Simulation (Testbench)</h4>
+                    <p>Before running synthesis, validate the C++ model using the provided testbench. Open the
+                        <strong>Vitis HLS</strong> project (from the package extracted in Step 6) and add the
+                        testbench files located in:</p>
+                    <div class="code-block">day-3/automate/test_bench_hls/</div>
+                    <p>Add these files to the <strong>Test Bench</strong> sources in the Vitis HLS project, then
+                        click <strong>Run C Simulation</strong> to verify functional correctness before
+                        proceeding to synthesis.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">8</div>
+                <div class="step-content">
+                    <h4>Hardware Automation</h4>
+                    <p>Build the Vivado block design and generate the <span class="highlight">.xsa</span>. You can do
+                        this in two ways:</p>
+
+                    <h3>Option A: Jupyter Notebook (guided)</h3>
+                    <p>Open the notebook <span class="highlight">hw_tcl</span> in <span class="highlight">day3/automate</span>
+                        and follow the cells to:</p>
+                    <ul>
+                        <li><strong>Generate the IP:</strong> Convert the C++ code into a Vivado IP core using Vitis HLS.
+                            This can be done in two ways:
+                            <ul style="margin-top: 8px;">
+                                <li><strong>Via the notebook:</strong> Run the HLS synthesis cells in <span class="highlight">hw_tcl</span>, these call Vitis HLS automatically.</li>
+                                <li><strong>Via Vitis HLS GUI:</strong> Open the Vitis HLS project included in the package you downloaded from KalEdge and extracted in Step 6. The project folder location depends on where you placed it.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Build the Block Design:</strong> Automatically generate the <span class="highlight">.xsa</span>
+                            for the Ultra96-V2, integrating the DMA wrapper.</li>
+                    </ul>
+
+                    <h3>Option B: Vivado Tcl Console (direct)</h3>
+                    <p>Before using this option, make sure the Vitis HLS IP has already been generated (using either
+                        sub-option from "Generate the IP" above) and added to the Vivado IP repository. Then, create a Vivado project targeting the correct part:</p>
+                    <table class="config-table">
+                        <tr>
+                            <td>Project Type</td>
+                            <td>RTL Project</td>
+                        </tr>
+                        <tr>
+                            <td>Part / Board</td>
+                            <td><span class="highlight">xczu3eg-sbva484-1-e</span> (Ultra96-V2)</td>
+                        </tr>
+                        <tr>
+                            <td>Do not add sources now</td>
+                            <td>Checked</td>
+                        </tr>
+                    </table>
+                    <p>Then, from the <strong>Tcl Console</strong> (bottom panel in Vivado), run:</p>
+                    <div class="code-block">source /path/to/day3/automate/build_design.tcl</div>
+                    <div class="important-box">
+                        <strong>Tip:</strong> Use <code>pwd</code> to check Vivado's working directory, and <code>cd</code>
+                        to navigate first:
+                        <div class="code-block" style="margin-top: 10px; color: #94a3b8;">
+                            cd /path/to/day3/automate<br>
+                            source build_design.tcl
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">9</div>
+                <div class="step-content">
+                    <h4>Deploy to Hardware</h4>
+                    <p>Once the <span class="highlight">.xsa</span> is generated you can deploy inference in two ways:</p>
+
+                    <h3>Option A: PYNQ (Python overlay)</h3>
+                    <p>Upload the contents of the <span class="highlight">day-3/pynq/</span> folder to your Ultra96-V2
+                        board running the <strong>PYNQ environment</strong>. This folder contains everything needed:</p>
+                    <ul>
+                        <li>The generated <span class="highlight">.xsa</span> (hardware definition + bitstream)</li>
+                        <li>The <span class="highlight">gamma_neutron.csv</span> dataset</li>
+                        <li>The Jupyter notebook <span class="highlight">mlp-ultra96.ipynb</span></li>
+                    </ul>
+                    <p>Open the notebook on the PYNQ board to load the overlay and run real-time hardware inference.</p>
+
+                    <h3>Option B: Baremetal (Vitis standalone)</h3>
+                    <p>Open <strong>Vitis</strong> and create a new platform project from the exported
+                        <span class="highlight">.xsa</span>. Then create a standalone application and add the
+                        provided inference code from <span class="highlight">day-3/baremetal/inference.c</span>.
+                        This approach gives you full control over execution without a Linux OS, and is suitable
+                        for production or latency-critical deployments.</p>
+                    <div class="important-box">
+                        <strong>Note:</strong> The baremetal flow requires familiarity with Vitis and bare-metal C/C++
+                        development. For most users starting out, Option A (PYNQ) is recommended.</div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">10</div>
+                <div class="step-content">
+                    <h4>Exercise: Inference Analysis</h4>
+                    <p>After running hardware inference, evaluate and visualize the results. The following are provided
+                        and open exercises:</p>
+                    <ul>
+                        <li><strong>Sample trace visualization (PYNQ):</strong> Select a sample from the dataset and plot its
+                            raw signal waveform, showing the <em>true label</em> and the <em>predicted label</em> from
+                            the hardware. Try changing which sample you pick and observe how gamma and neutron pulses
+                            differ in shape.</li>
+                        <li><strong>Confusion matrix (PYNQ):</strong> Provided. Run inference over the full test dataset
+                            using the PYNQ overlay and inspect the confusion matrix to understand classification performance
+                            across both classes. Use this as your reference.</li>
+                        <li><strong>Confusion matrix (Baremetal) Exercise:</strong> Replicate the above using the
+                            baremetal flow. Feed the dataset samples to the accelerator via DMA, collect the hardware
+                            predictions, and generate the confusion matrix. Compare your result against the PYNQ reference.</li>
+                    </ul>
+                    <div class="important-box">
+                        <strong>Hint:</strong> <code>sklearn.metrics</code> has everything you need,
+                        <code>ConfusionMatrixDisplay</code> lets you plot it directly with one call.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Part B: From Scratch & Manual Flow</h2>
+            <p>For advanced users who prefer a programmatic approach and building the hardware system from scratch in
+                Vivado.</p>
+            <div class="important-box">
+                <strong>Deployment target:</strong> As in Part A, once you have the <code>.xsa</code>, you can target
+                <strong>PYNQ</strong> (Python overlay) or <strong>Baremetal</strong> (Vitis standalone application).
+                Both options are valid, choose based on your use case and familiarity with the toolchain.
+            </div>
+
+            <div class="step">
+                <div class="step-number">11</div>
+                <div class="step-content">
+                    <h4>Training via Python API</h4>
+                    <p>If you prefer to train your model programmatically, use this standalone script to reproduce the
+                        KalEdge workflow. This script loads the dataset, applies the same <strong>per-sample
+                        normalization</strong> used in Part A, performs a proper train/test split, builds and trains
+                        the quantized model, evaluates it, and prepares the HLS configuration.</p>
+                    <div class="important-box">
+                        <strong>Test dataset:</strong> The <code>X_test / y_test</code> split created here serves as
+                        your <strong>held-out evaluation set</strong>. It is used both to generate the software
+                        confusion matrix below and, once deployed, to drive hardware inference on the PYNQ board
+                        or the baremetal accelerator.
+                    </div>
+                    <div class="code-block">
+                        import numpy as np<br>
+                        import pandas as pd<br>
+                        import tensorflow as tf<br>
+                        import qkeras<br>
+                        import hls4ml<br>
+                        import matplotlib.pyplot as plt<br>
+                        from sklearn.model_selection import train_test_split<br>
+                        from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay<br>
+                        <br>
+                        # 1. Load &amp; preprocess data<br>
+                        df = pd.read_csv('../../dataset/gamma_neutron.csv')<br>
+                        X_raw = df.drop('class', axis=1).values.astype('float32')<br>
+                        y_raw = df['class'].values<br>
+                        num_classes = len(np.unique(y_raw))<br>
+                        <br>
+                        # Per-sample normalization (same as KalEdge Part A)<br>
+                        row_min = X_raw.min(axis=1, keepdims=True)<br>
+                        row_max = X_raw.max(axis=1, keepdims=True)<br>
+                        X = (X_raw - row_min) / (row_max - row_min + 1e-8)<br>
+                        y = tf.keras.utils.to_categorical(y_raw, num_classes)<br>
+                        <br>
+                        # Stratified 80/20 train–test split<br>
+                        X_train, X_test, y_train, y_test = train_test_split(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X, y, test_size=0.2, random_state=42, stratify=y_raw<br>
+                        )<br>
+                        <br>
+                        # 2. Build QKeras model<br>
+                        model = tf.keras.Sequential([<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Flatten(input_shape=(X.shape[1],)),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(16,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,2)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,2)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(8,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,2)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,2)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(num_classes, activation="softmax")<br>
+                        ])<br>
+                        <br>
+                        # 3. Train (QAT)<br>
+                        model.compile(optimizer=tf.keras.optimizers.Adam(1e-3), loss='categorical_crossentropy', metrics=['accuracy'])<br>
+                        history = model.fit(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X_train, y_train,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;epochs=32, batch_size=32,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;validation_data=(X_test, y_test)<br>
+                        )<br>
+                        <br>
+                        # 4. Evaluate &amp; visualize results<br>
+                        fig, axes = plt.subplots(1, 2, figsize=(12, 4))<br>
+                        <br>
+                        # Training curves<br>
+                        axes[0].plot(history.history['accuracy'],  color='#4B6CF7', label='Train acc')<br>
+                        axes[0].plot(history.history['val_accuracy'], color='#A78BFA', label='Val acc', linestyle='--')<br>
+                        axes[0].set_title('Accuracy'); axes[0].legend()<br>
+                        axes[1].plot(history.history['loss'], color='#4B6CF7', label='Train loss')<br>
+                        axes[1].plot(history.history['val_loss'], color='#A78BFA', label='Val loss', linestyle='--')<br>
+                        axes[1].set_title('Loss'); axes[1].legend()<br>
+                        plt.tight_layout(); plt.show()<br>
+                        <br>
+                        # Confusion matrix on the held-out test set<br>
+                        y_pred = np.argmax(model.predict(X_test), axis=1)<br>
+                        y_true = np.argmax(y_test, axis=1)<br>
+                        cm = confusion_matrix(y_true, y_pred)<br>
+                        ConfusionMatrixDisplay(cm, display_labels=['Gamma', 'Neutron']).plot(cmap='Blues')<br>
+                        plt.title('Software model: test set'); plt.show()<br>
+                        <br>
+                        # 5. Convert to hls4ml<br>
+                        import os, shutil<br>
+                        <br>
+                        out_dir = 'hls4ml_prj'<br>
+                        if os.path.isdir(out_dir):&nbsp;&nbsp;# clean previous run<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;shutil.rmtree(out_dir)<br>
+                        <br>
+                        config = hls4ml.utils.config_from_keras_model(model, granularity='name')<br>
+                        config['Model']['Precision'] = 'ap_fixed&lt;16,6&gt;'<br>
+                        config['Model']['ReuseFactor'] = 8<br>
+                        config['Model']['Strategy'] = 'Latency'<br>
+                        <br>
+                        hls_model = hls4ml.converters.convert_from_keras_model(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;model,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;hls_config=config,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;output_dir=out_dir,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;part='xczu3eg-ffvb1156-1-e'&nbsp;&nbsp;# Ultra96-V2<br>
+                        )<br>
+                        # compile() writes firmware (no Vitis HLS needed in PATH)<br>
+                        # (use hls_model.build() only if Vitis HLS is installed locally)<br>
+                        hls_model.compile()<br>
+                        <br>
+                        # 6. Patch generated files for Vitis HLS 2024.1 compatibility<br>
+                        for root, _, files in os.walk(out_dir):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;for fname in files:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = os.path.join(root, fname)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith('.tcl'):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lines = [('# ' + l if 'config_array_partition -maximum_size' in l<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else l.replace('-std=c++0x', '-std=c++11'))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for l in txt.splitlines()]<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write('\n'.join(lines))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith(('.cpp', '.h')):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#pragma HLS INLINE region', '#pragma HLS INLINE')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if '#include &lt;iostream&gt;' in txt and '#ifndef __SYNTHESIS__' not in txt:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#include &lt;iostream&gt;',<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'#ifndef __SYNTHESIS__\n#include &lt;iostream&gt;\n#endif')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write(txt)<br>
+                        print('hls4ml project ready in:', out_dir)
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">12</div>
+                <div class="step-content">
+                    <h4>A Deeper Look: The DMA Wrapper</h4>
+                    <p>To connect your neural network to the Processing System (PS) via DMA, you need a top-level
+                        accelerator wrapper. These source files (.cpp and .h) are provided in the <span
+                            class="highlight">day-3/dma_wrapper</span> directory of the repository. This wrapper handles
+                        the AXI Stream protocol, reading input data and writing predictions back to memory.</p>
+                    <div class="code-block">
+                        #include "myproject_auto_accel.h"<br>
+                        #include "myproject.h"<br>
+                        <br>
+                        void myproject_auto_accel(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;hls::stream&lt;axis_t&gt; &amp;s_axis_in,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;hls::stream&lt;axis_t&gt; &amp;s_axis_out<br>
+                        ) {<br>
+                        #pragma HLS INTERFACE axis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;port=s_axis_in<br>
+                        #pragma HLS INTERFACE axis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;port=s_axis_out<br>
+                        #pragma HLS INTERFACE s_axilite port=return bundle=CTRL<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;input_t in_arr[161];<br>
+                        #pragma HLS ARRAY_PARTITION variable=in_arr complete dim=1<br>
+                        <br>
+                        READ_IN:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;for (int i = 0; i < 161; i++) {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;#pragma HLS PIPELINE II=1<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;axis_t din = s_axis_in.read();<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in_arr[i] =
+                            axis_to_fixed&lt;16,6&gt;(din);<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                            <br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;result_t out_arr[2];<br>
+                            #pragma HLS ARRAY_PARTITION variable=out_arr complete dim=1<br>
+                            <br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;myproject(in_arr, out_arr);<br>
+                            <br>
+                            WRITE_OUT:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;for (int i = 0; i < 2; i++) {<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;#pragma HLS PIPELINE II=1<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;axis_t dout;<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fixed_to_axis&lt;16,6&gt;(dout,
+                                out_arr[i]);<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dout.keep = -1; dout.strb = -1;<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dout.user = 0; dout.id = 0; dout.dest =
+                                0;<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dout.last = (i == 2 - 1);<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_axis_out.write(dout);<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                                }<br>
+                    </div>
+                    <p>This wrapper ensures the model is hardware-ready, automating the data transfer between the FPGA
+                        logic and the ARM processor.</p>
+                </div>
+            </div>
+
+            <br>
+
+            <div class="step">
+                <div class="step-number">13</div>
+                <div class="step-content">
+                    <h4>Vitis HLS: IP Generation</h4>
+                    <p>Before moving to Vivado, you must synthesize your C++ code into an RTL IP core. Open
+                        <strong>Vitis HLS (2022 or 2024)</strong> and create a project including your source files and
+                        the DMA wrapper. Click <strong>Run Synthesis</strong> and then <strong>Export RTL</strong> to
+                        generate the IP package (.zip).
+                    </p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">14</div>
+                <div class="step-content">
+                    <h4>Vivado Project Setup</h4>
+                    <p>Open <strong>Vivado (2022 or 2024)</strong> and create a new <strong>RTL Project</strong>. When
+                        prompted for board selection, apply these settings:</p>
+                    <table class="config-table">
+                        <tr>
+                            <td>Project Name</td>
+                            <td>ml_ultra96</td>
+                        </tr>
+                        <tr>
+                            <td>Project Type</td>
+                            <td>RTL Project</td>
+                        </tr>
+                        <tr>
+                            <td>Board Selection</td>
+                            <td><span class="highlight">Ultra96-V1 Single Board Computer</span> (xczu3eg-sbva484-1-e)
+                            </td>
+                        </tr>
+                    </table>
+
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">15</div>
+                <div class="step-content">
+                    <h4>Block Design Construction</h4>
+                    <p>Create a new <strong>Block Design</strong> and add the <strong>Zynq UltraScale+ MPSoC</strong>.
+                        Run <strong>Block Automation</strong> with "Apply Board Presets" enabled. Then, follow these
+                        critical configurations:</p>
+                    <ul>
+                        <li><strong>PS-PL Configuration:</strong> Enable <strong>AXI HPM0 LPD</strong> and <strong>AXI
+                                HP0 FPD</strong>.
+                            <p align="center">
+                                <img src="images/General/re_customize_ip.png" width="80%"
+                                    style="margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            </p>
+                        </li>
+                        <li><strong>Clock Configuration:</strong> Ensure <strong>PL Fabric Clock (FCLK_CLK0)</strong> is
+                            set to <strong>100 MHz</strong>.</li>
+                        <li><strong>AXI DMA:</strong> Add the DMA IP and disable <strong>Scatter-Gather</strong>. Set
+                            the Burst Size to 16.
+                            <p align="center">
+                                <img src="images/General/dma_config.png" width="80%"
+                                    style="margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            </p>
+                        </li>
+                        <li><strong>MLP IP:</strong> Add your generated <code>myproject_auto_accel</code> IP from the
+                            repository.</li>
+                    </ul>
+                    <p>Use <strong>Connection Automation</strong> to let Vivado route the AXI interconnects and reset
+                        logic automatically. <strong>IMPORTANT:</strong> The AXI-Stream data connections between the DMA
+                        and the Accelerator (Input/Output) must be performed <span class="highlight">manually</span>.
+                        Ensure the final connections look exactly as shown in the figure below:</p>
+                    <p align="center">
+                        <img src="images/dma-ultra96.png" width="80%"
+                            style="margin: 20px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    </p>
+                    <p align="center">
+                        <img src="images/bd-ultra96.png" width="90%"
+                            style="margin: 20px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    </p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">16</div>
+                <div class="step-content">
+                    <h4>Bitstream and Hardware Export</h4>
+                    <p>Right-click the block design in the Sources tab and select <strong>Create HDL Wrapper</strong>.
+                        Finally, click <strong>Generate Bitstream</strong>. Once completed, go to <strong>File → Export
+                            → Export Hardware</strong>, ensuring you check the <strong>"Include Bitstream"</strong>
+                        option to generate your <code>.xsa</code> file.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">17</div>
+                <div class="step-content">
+                    <h4>Resource Comparison (MLP vs. SNN)</h4>
+                    <p>As an analytical exercise, compare the HLS synthesis metrics of your MLP model against the
+                        provided <strong>SNN-LIF (Spiking Neural Network)</strong> benchmark. Inspect the usage of <span
+                            class="highlight">LUTs, FFs, DSPs, and BRAMs</span> to understand how different neural
+                        architectures trade off accuracy for hardware efficiency.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">18</div>
+                <div class="step-content">
+                    <h4>Deploy to Hardware</h4>
+                    <p>Once the <span class="highlight">.xsa</span> is generated you can deploy inference in two ways:</p>
+
+                    <h3>Option A: PYNQ (Python overlay)</h3>
+                    <p>Upload the contents of the <span class="highlight">day-3/pynq/</span> folder to your Ultra96-V2
+                        board running the <strong>PYNQ environment</strong>. This folder contains everything needed:</p>
+                    <ul>
+                        <li>The generated <span class="highlight">.xsa</span> (hardware definition + bitstream)</li>
+                        <li>The <span class="highlight">gamma_neutron.csv</span> dataset</li>
+                        <li>The Jupyter notebook <span class="highlight">mlp-ultra96.ipynb</span></li>
+                    </ul>
+                    <p>Open the notebook on the PYNQ board to load the overlay and run real-time hardware inference.</p>
+
+                    <h3>Option B: Baremetal (Vitis standalone)</h3>
+                    <p>Open <strong>Vitis</strong> and create a new platform project from the exported
+                        <span class="highlight">.xsa</span>. Then create a standalone application and add the
+                        provided inference code from <span class="highlight">day-3/baremetal/inference.c</span>.
+                        This approach gives you full control over execution without a Linux OS, and is suitable
+                        for production or latency-critical deployments.</p>
+                    <div class="important-box">
+                        <strong>Note:</strong> The baremetal flow requires familiarity with Vitis and bare-metal C/C++
+                        development. For most users starting out, Option A (PYNQ) is recommended.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Exercise: KD + QAP Pipeline (KalEdge Equivalent)</h2>
+            <p>This exercise replicates the <strong>KD&nbsp;+&nbsp;QAP</strong> pipeline from KalEdge using plain
+                Keras and QKeras. The idea is to train a large <em>Teacher</em> MLP, then distill its knowledge into a
+                compact, 8-bit quantized <em>Student</em> that is also pruned to 30&nbsp;% sparsity during
+                training, all in one fused pass.</p>
+            <div class="important-box">
+                <strong>Why this matters for FPGA:</strong> The pruned+quantized student generates significantly
+                sparser weight matrices, reducing LUT/FF usage and improving throughput compared to a dense QKeras
+                model trained from scratch. The distillation step helps recover the accuracy lost to pruning.
+            </div>
+            <div class="important-box" style="border-left-color: #3B82F6; background-color: #EFF6FF; color: #1E3A8A;">
+                <strong>KalEdge GUI Alternative:</strong> You can also generate this <code>hls4ml</code> project automatically through the KalEdge application. Navigate to the <strong>Pipeline</strong> tab and select the <strong>KD+QAP</strong> workflow. Note that you must first train your teacher model in the <strong>Baseline</strong> tab, and define the quantized student architecture directly in the <strong>KD</strong> tab.<br><br>
+                In KalEdge, architectures are defined using the <code>build_model(input_shape, num_classes)</code> signature. For example:<br><br>
+                <strong>Baseline (Teacher):</strong>
+                <pre style="background-color: #DBEAFE; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.9em; overflow-x: auto;">def build_model(input_shape, num_classes):
+    return tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=input_shape),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(num_classes) 
+    ])</pre>
+                <strong>Student (KD Tab):</strong>
+                <pre style="background-color: #DBEAFE; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.9em; overflow-x: auto;">import qkeras
+import tensorflow as tf
+from tensorflow.keras.layers import Flatten
+
+def build_model(input_shape, num_classes):
+    return tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=input_shape),
+        qkeras.QDense(4,
+            kernel_quantizer="quantized_bits(8,4)",
+            bias_quantizer="quantized_bits(8,4)"),
+        qkeras.QActivation("quantized_relu(8)"),
+        qkeras.QDense(16,
+            kernel_quantizer="quantized_bits(8,4)",
+            bias_quantizer="quantized_bits(8,4)"),
+        qkeras.QActivation("quantized_relu(8)"),
+        qkeras.QDense(num_classes) 
+    ])</pre><br>
+                <em>Note: The distillation hyperparameters (like temperature and alpha) must be configured directly in the <strong>KD</strong> tab prior to executing the Pipeline.</em><br><br>
+                <em>Note 2: Before generating the HLS project, navigate to the <strong>hls4ml</strong> tab and ensure the default precision is set to <code>ap_fixed&lt;16,8&gt;</code> to avoid overflow issues during C-simulation.</em>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">A</div>
+                <div class="step-content">
+                    <h4>Step A: Train the Teacher</h4>
+                    <p>Define and train a larger, float-precision MLP that will act as the soft-label source for
+                        distillation. This model is <em>not</em> deployed to hardware.</p>
+                    <div class="code-block">
+                        import numpy as np<br>
+                        import tensorflow as tf<br>
+                        import qkeras<br>
+                        import tensorflow_model_optimization as tfmot<br>
+                        import matplotlib.pyplot as plt<br>
+                        import pandas as pd<br>
+                        from sklearn.model_selection import train_test_split<br>
+                        from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay<br>
+                        <br>
+                        # 1. Load & preprocess data<br>
+                        df = pd.read_csv('../dataset/gamma_neutron.csv')<br>
+                        X_raw = df.drop('class', axis=1).values.astype('float32')<br>
+                        y_raw = df['class'].values<br>
+                        num_classes = len(np.unique(y_raw))<br>
+                        <br>
+                        # Per-sample normalization (same as KalEdge Part A)<br>
+                        row_min = X_raw.min(axis=1, keepdims=True)<br>
+                        row_max = X_raw.max(axis=1, keepdims=True)<br>
+                        X = (X_raw - row_min) / (row_max - row_min + 1e-8)<br>
+                        y = tf.keras.utils.to_categorical(y_raw, num_classes)<br>
+                        <br>
+                        # Stratified 80/20 train-test split<br>
+                        X_train, X_test, y_train, y_test = train_test_split(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X, y, test_size=0.2, random_state=42, stratify=y_raw<br>
+                        )<br>
+                        <br>
+                        # Teacher: larger float MLP<br>
+                        teacher = tf.keras.Sequential([<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Flatten(input_shape=(X_train.shape[1],)),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Dense(64, activation='relu'),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Dense(32, activation='relu'),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Dense(y_train.shape[1])  # logits (no softmax)<br>
+                        ], name='teacher')<br>
+                        <br>
+                        teacher.compile(optimizer=tf.keras.optimizers.Adam(1e-3),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;metrics=['accuracy'])<br>
+                        teacher.fit(X_train, y_train, epochs=40, batch_size=32,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;validation_data=(X_test, y_test), verbose=1)<br>
+                        print(f"Teacher val acc: {teacher.evaluate(X_test, y_test, verbose=0)[1]:.4f}")
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">B</div>
+                <div class="step-content">
+                    <h4>Step B: Define the Quantized Student (QKeras)</h4>
+                    <p>Build the same compact QKeras architecture used in Step 11 but <strong>without softmax</strong>
+                        on the output layer, so the Distiller receives raw logits from both teacher and student.</p>
+                    <div class="code-block">
+                        def build_student():<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;return tf.keras.Sequential([<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tf.keras.layers.Flatten(input_shape=(X_train.shape[1],)),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(4,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,4)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,4)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(16,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel_quantizer="quantized_bits(8,4)",<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bias_quantizer="quantized_bits(8,4)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QActivation("quantized_relu(8)"),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;qkeras.QDense(y_train.shape[1])  # logits, no softmax<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;], name='student')
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">C</div>
+                <div class="step-content">
+                    <h4>Step C: Fused Distillation + Pruning (KD + QAP)</h4>
+                    <p>Wrap the student in a <code>Distiller</code> that overrides <code>train_step</code> to blend
+                        the hard label loss with the KL soft-label loss from the teacher (temperature scaling).
+                        Then apply <strong>magnitude-based pruning</strong> using a <code>PolynomialDecay</code>
+                        schedule to reach 30&nbsp;% sparsity by the end of training.</p>
+                    <div class="code-block">
+                        TEMPERATURE  = 4.0   # soften teacher distribution<br>
+                        ALPHA        = 0.3   # weight of hard label loss<br>
+                        SPARSITY     = 0.30  # target pruning sparsity<br>
+                        EPOCHS       = 40<br>
+                        BATCH_SIZE   = 32<br>
+                        PRUNE_START  = 5     # epoch to begin pruning (let KD warm up first)<br>
+                        PRUNE_END    = 35    # epoch to reach full sparsity (leave tail clean)<br>
+                        <br>
+                        # Distiller (mirrors KalEdge ml_core_kd.py)<br>
+                        hard_loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)<br>
+                        kl        = tf.keras.losses.KLDivergence()<br>
+                        <br>
+                        class Distiller(tf.keras.Model):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def __init__(self, student, teacher):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;super().__init__()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.student = student<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.teacher = teacher<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self._acc = tf.keras.metrics.CategoricalAccuracy(name='accuracy')<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def compile(self, optimizer):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;super().compile()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.optimizer = optimizer<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def train_step(self, data):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x, y = data<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t_logits = self.teacher(x, training=False)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with tf.GradientTape() as tape:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_logits = self.student(x, training=True)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hard = hard_loss(y, s_logits)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t_soft = tf.nn.softmax(t_logits / TEMPERATURE)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_soft = tf.nn.softmax(s_logits / TEMPERATURE)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;soft  = kl(t_soft, s_soft) * (TEMPERATURE ** 2)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loss  = ALPHA * hard + (1 - ALPHA) * soft<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;grads = tape.gradient(loss, self.student.trainable_variables)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.optimizer.apply_gradients(zip(grads, self.student.trainable_variables))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self._acc.update_state(y, tf.nn.softmax(s_logits))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return {'loss': loss, 'accuracy': self._acc.result()}<br>
+                        <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;def test_step(self, data):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x, y = data<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_logits = self.student(x, training=False)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self._acc.update_state(y, tf.nn.softmax(s_logits))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return {'loss': hard_loss(y, s_logits), 'accuracy': self._acc.result()}<br>
+                        <br>
+                        # Apply pruning schedule to the QKeras student<br>
+                        steps_per_epoch = max(1, len(X_train) // BATCH_SIZE)<br>
+                        schedule = tfmot.sparsity.keras.PolynomialDecay(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;initial_sparsity=0.0,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;final_sparsity=SPARSITY,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;begin_step=PRUNE_START * steps_per_epoch,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;end_step=PRUNE_END   * steps_per_epoch)<br>
+                        <br>
+                        student_pruned = tfmot.sparsity.keras.prune_low_magnitude(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;build_student(), pruning_schedule=schedule)<br>
+                        <br>
+                        distiller = Distiller(student_pruned, teacher)<br>
+                        distiller.compile(optimizer=tf.keras.optimizers.Adam(1e-3))<br>
+                        <br>
+                        hist_kd = distiller.fit(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;X_train, y_train,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;validation_data=(X_test, y_test),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;epochs=EPOCHS, batch_size=BATCH_SIZE,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])<br>
+                        <br>
+                        # Strip pruning masks to get the clean deployable model<br>
+                        student_final = tfmot.sparsity.keras.strip_pruning(distiller.student)
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">D</div>
+                <div class="step-content">
+                    <h4>Step D: Evaluate &amp; Compare</h4>
+                    <p>Plot the distillation training curves and compare the student confusion matrix against the
+                        teacher baseline. Then feed <code>student_final</code> into the hls4ml pipeline from
+                        Step&nbsp;11 to generate the pruned+quantized FPGA firmware.</p>
+                    <div class="code-block">
+                        # Training curves<br>
+                        fig, axes = plt.subplots(1, 2, figsize=(12, 4))<br>
+                        axes[0].plot(hist_kd.history['accuracy'], color='#4B6CF7', label='Student train')<br>
+                        axes[0].plot(hist_kd.history['val_accuracy'], color='#A78BFA', label='Student val', linestyle='--')<br>
+                        axes[0].set_title('KD Accuracy'); axes[0].legend()<br>
+                        axes[1].plot(hist_kd.history['loss'], color='#4B6CF7', label='Train loss')<br>
+                        axes[1].plot(hist_kd.history['val_loss'], color='#A78BFA', label='Val loss', linestyle='--')<br>
+                        axes[1].set_title('KD Loss'); axes[1].legend()<br>
+                        plt.tight_layout(); plt.show()<br>
+                        <br>
+                        # Confusion matrix: student_final<br>
+                        y_pred = np.argmax(tf.nn.softmax(student_final(X_test)).numpy(), axis=1)<br>
+                        y_true = np.argmax(y_test, axis=1)<br>
+                        cm = confusion_matrix(y_true, y_pred)<br>
+                        ConfusionMatrixDisplay(cm, display_labels=['Gamma', 'Neutron']).plot(cmap='Greens')<br>
+                        plt.title('KD + QAP student: test set'); plt.show()<br>
+                        <br>
+                        # Convert the pruned student to hls4ml<br>
+                        import os, shutil<br>
+                        <br>
+                        out_dir_kd = 'hls4ml_prj_kd'<br>
+                        if os.path.isdir(out_dir_kd):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;shutil.rmtree(out_dir_kd)<br>
+                        <br>
+                        config_kd = hls4ml.utils.config_from_keras_model(student_final, granularity='name')<br>
+                        config_kd['Model']['Precision'] = 'ap_fixed&lt;16,6&gt;'<br>
+                        config_kd['Model']['ReuseFactor'] = 8<br>
+                        config_kd['Model']['Strategy'] = 'Latency'<br>
+                        <br>
+                        hls_student = hls4ml.converters.convert_from_keras_model(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;student_final,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;hls_config=config_kd,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;output_dir=out_dir_kd,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;part='xczu3eg-ffvb1156-1-e'<br>
+                        )<br>
+                        hls_student.compile()<br>
+                        <br>
+                        # Apply the same Vitis HLS 2024.1 compatibility patches (see Step 11)<br>
+                        for root, _, files in os.walk(out_dir_kd):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;for fname in files:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = os.path.join(root, fname)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith('.tcl'):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lines = [('# ' + l if 'config_array_partition -maximum_size' in l<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else l.replace('-std=c++0x', '-std=c++11'))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for l in txt.splitlines()]<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write('\n'.join(lines))<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if fname.endswith(('.cpp', '.h')):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = open(p).read()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#pragma HLS INLINE region', '#pragma HLS INLINE')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if '#include &lt;iostream&gt;' in txt and '#ifndef __SYNTHESIS__' not in txt:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;txt = txt.replace('#include &lt;iostream&gt;',<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'#ifndef __SYNTHESIS__\n#include &lt;iostream&gt;\n#endif')<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open(p, 'w').write(txt)<br>
+                        print('KD+QAP hls4ml project ready in:', out_dir_kd)<br>
+                        <br>
+                        # HLS C-simulation: confusion matrix from the compiled HLS model<br>
+                        y_hls = hls_student.predict(np.ascontiguousarray(X_test))<br>
+                        y_pred_hls = np.argmax(y_hls, axis=1)<br>
+                        cm_hls = confusion_matrix(y_true, y_pred_hls)<br>
+                        <br>
+                        fig, axes = plt.subplots(1, 2, figsize=(10, 4))<br>
+                        ConfusionMatrixDisplay(cm,     display_labels=['Gamma','Neutron']).plot(cmap='Greens', ax=axes[0])<br>
+                        ConfusionMatrixDisplay(cm_hls, display_labels=['Gamma','Neutron']).plot(cmap='Blues',  ax=axes[1])<br>
+                        axes[0].set_title('Software (student_final)')<br>
+                        axes[1].set_title('HLS C-sim (hls_student)')<br>
+                        plt.tight_layout(); plt.show()
+                    </div>
+                    <div class="important-box">
+                        <strong>Exercise:</strong> Compare the HLS synthesis report of <code>student_final</code>
+                        (KD&nbsp;+&nbsp;QAP) against the dense QKeras model from Step&nbsp;11.
+                        Look at LUT, FF, and DSP counts in the Vitis HLS report; the sparsity should
+                        translate to a measurable resource reduction. Try adjusting <code>SPARSITY</code>
+                        to 0.5 and observe the accuracy/resource trade-off.
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number" style="background-color:#10B981;">E</div>
+                <div class="step-content">
+                    <h4>Step E: Hardware Implementation</h4>
+                    <p>Once you have generated the <code>hls4ml_prj_kd</code> project and verified the HLS C-simulation, you can proceed to implement this optimized accelerator on your Ultra96-V2 board.</p>
+                    <p>Follow the same procedures as in the main tutorial starting from <strong>Step 12</strong> to build the DMA wrapper, synthesize the IP in Vitis HLS, generate the Vivado block design, and deploy the bitstream using PYNQ or Baremetal.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Challenge: Advanced Optimization</h2>
+            <p>Ready to push the limits? Try these advanced exercises on the <strong>Gamma-Neutron</strong> dataset:</p>
+            <ul>
+                <li><strong>Knowledge Distillation (KD)</strong>: Use a large MLP as a Teacher and distill its knowledge
+                    into a tiny Student to see if you can maintain accuracy with fewer resources.</li>
+                <li><strong>Pruning & SVD</strong>: Apply structural pruning or Low-Rank Factorization (SVD) to reduce
+                    the model size further.</li>
+                <li><strong>Binary MNIST Challenge</strong>: Replicate the entire workflow for handwritten digit
+                    classification and deploy a new custom overlay.</li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer">
+        <p>KaleidoForge: Lightning Bridges for Fast AI</p>
+        <p>© 2025–2026 KalEdge | Ultra96-V2 Edition</p>
+    </div>
+</body>
+
+</html>
